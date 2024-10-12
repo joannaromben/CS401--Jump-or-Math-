@@ -1,0 +1,1 @@
+#Manages the math problems when the player respawns.
