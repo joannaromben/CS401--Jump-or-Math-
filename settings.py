@@ -2,8 +2,17 @@
 
 # f:\gamedesign\settings.py
 
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+
+# 游戏窗口的基础设置
+# 游戏窗口的基础设置
+SCREEN_WIDTH = 500
+SCREEN_HEIGHT = 700
 FPS = 60
 
-print("settings.py loaded")
+# 颜色
+BG_COLOR = (135, 206, 250)  # 天蓝色背景
+GROUND_COLOR = (139, 69, 19)  # 棕色地面
+
+# 玩家设置
+PLAYER_SIZE = (20, 20)
+GRAVITY = 1

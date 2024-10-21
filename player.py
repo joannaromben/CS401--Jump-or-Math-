@@ -1,63 +1,71 @@
-#Defines the Player class, handling player attributes, movement, and animations.
-
 import pygame
+from settings import PLAYER_SIZE, GRAVITY, SCREEN_WIDTH, SCREEN_HEIGHT
 
-class Player:
+class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
-        # Load the player image (ball-shaped image)
-        try:
-            self.original_image = pygame.image.load('assets/images/character.png')
-            self.original_image = pygame.transform.scale(self.original_image, (50, 50))  # Scale the ball to 50x50
-            self.image = self.original_image  # Keep a copy of the original image for rotation
-            print("Player (ball) image loaded and scaled successfully")
-
-        except pygame.error as e:
-            print(f"Error loading player image: {e}")
-            raise SystemExit
-
+        super().__init__()
+        self.image = pygame.Surface(PLAYER_SIZE)
+        self.image.fill((0, 0, 255))  # 蓝色的角色
         self.rect = self.image.get_rect()
-        self.rect.x = x  # Initial horizontal position
-        self.rect.y = y  # Initial vertical position
-        self.velocity_y = 0  # Vertical velocity for jumping
-        self.jumping = False  # Whether the player is jumping
-        self.angle = 0  # Angle of rotation for rolling effect
-        self.rotation_speed = 5  # Speed at which the ball rotates when moving
+        self.rect.x = x
+        self.rect.y = y
+        self.velocity_y = 0  # 垂直速度
+        self.velocity_x = 0  # 水平速度
+        self.jumping = False
+        self.is_alive = True
+        self.gravity = GRAVITY
 
     def handle_keys(self):
-        # Handle left and right movement with ball rolling effect
         keys = pygame.key.get_pressed()
         if keys[pygame.K_LEFT]:
-            self.rect.x -= 5  # Move the player to the left
-            self.angle += self.rotation_speed  # Increase the angle for rotation (counter-clockwise)
-        if keys[pygame.K_RIGHT]:
-            self.rect.x += 5  # Move the player to the right
-            self.angle -= self.rotation_speed  # Decrease the angle for rotation (clockwise)
+            self.velocity_x = -5  # 向左移动
+        elif keys[pygame.K_RIGHT]:
+            self.velocity_x = 5  # 向右移动
+        else:
+            self.velocity_x = 0  # 停止移动
 
     def jump(self):
-        # Handle jump when the player presses spacebar
-        if not self.jumping:  # Player can jump only when not already jumping
-            self.jumping = True  # Set jumping to True
-            self.velocity_y = -10  # Set an initial upward velocity for jump
+        if not self.jumping and self.is_alive:
+            self.velocity_y = -20  # 设置跳跃的速度
+            self.jumping = True
 
     def apply_gravity(self):
-        # Apply gravity to make the player fall downwards after jumping
-        self.velocity_y += 0.5  # Gradually increase the vertical speed to simulate gravity
-        self.rect.y += self.velocity_y  # Update player's vertical position
+        if self.is_alive:
+            self.velocity_y += self.gravity
+            self.rect.y += self.velocity_y
 
-        # Prevent the player from falling off the screen (stop at ground level)
-        if self.rect.y >= 500:  # If the player hits the ground (y = 500)
-            self.rect.y = 500  # Reset the player position to ground
-            self.jumping = False  # Allow the player to jump again
+            if self.rect.top >= SCREEN_HEIGHT:
+                self.is_alive = False
+                self.velocity_y = 0
+                self.velocity_x = 0
 
-    def update(self):
-        self.handle_keys()  # Check for key input for left and right movement
-        self.apply_gravity()  # Apply gravity to update player's vertical position
+    def update(self, platforms, scroll_speed, ground_platform):
+        self.handle_keys()
+        self.apply_gravity()
 
-        # Rotate the ball image based on the current angle
-        self.image = pygame.transform.rotate(self.original_image, self.angle)  # Rotate image
-        self.rect = self.image.get_rect(center=self.rect.center)  # Recenter the ball's position
+        self.rect.x += self.velocity_x
+        if self.rect.right > SCREEN_WIDTH:
+            self.rect.right = SCREEN_WIDTH
+        if self.rect.left < 0:
+            self.rect.left = 0
 
-    def draw(self, screen):
-        # Draw the player (ball) on the screen
-        screen.blit(self.image, (self.rect.x, self.rect.y))
-        
+        if self.velocity_y > 0:  # 只有在下落时检测碰撞
+            for platform in platforms:
+                if pygame.sprite.collide_rect(self, platform):
+                    # 改进碰撞检测，确保玩家底部和跳板顶部对齐
+                    if self.rect.bottom <= platform.rect.top + 10 and self.rect.bottom >= platform.rect.top:
+                        self.rect.bottom = platform.rect.top  # 精确对齐
+                        self.velocity_y = 0  # 停止下落
+                        self.jumping = False  # 重置跳跃状态
+                        
+                        # 如果碰到跳板且不是平地，则移除平地
+                        if not platform.is_ground and ground_platform in platforms:
+                            platforms.remove(ground_platform)
+
+    def reset_position(self):
+        self.rect.x = SCREEN_WIDTH // 2 - 25
+        self.rect.y = SCREEN_HEIGHT - 170
+        self.velocity_y = 0
+        self.velocity_x = 0
+        self.jumping = False
+        self.is_alive = True
