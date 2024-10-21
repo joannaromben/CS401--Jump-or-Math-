@@ -4,14 +4,14 @@ from player import Player
 from footing import Platform, generate_footings
 from settings import SCREEN_WIDTH, SCREEN_HEIGHT
 
-# 初始化 Pygame
+# Initialize Pygame
 pygame.init()
 
-# 设置屏幕
+# Set up the screen
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Jump and Platform Game")
 
-# 加载并调整背景图片的尺寸，使其与屏幕宽高一致
+# Load and resize background images to fit the screen size
 background_images = [
     pygame.transform.scale(pygame.image.load('assets/images/bk1.png'), (SCREEN_WIDTH, SCREEN_HEIGHT)),
     pygame.transform.scale(pygame.image.load('assets/images/bk2.png'), (SCREEN_WIDTH, SCREEN_HEIGHT)),
@@ -19,20 +19,20 @@ background_images = [
     pygame.transform.scale(pygame.image.load('assets/images/bk4.png'), (SCREEN_WIDTH, SCREEN_HEIGHT))
 ]
 
-# 创建平地作为游戏开始时的起点
+# Create the ground platform as the starting point of the game
 ground = Platform(0, SCREEN_HEIGHT - 50, SCREEN_WIDTH, is_ground=True)
 
-# 初始化玩家对象
+# Initialize the player object
 player = Player(SCREEN_WIDTH // 2 - 25, SCREEN_HEIGHT - 170)
 
-# 初始化跳板
-platforms = generate_footings(10)  # 初始生成10个跳板
-platforms.add(ground)  # 将平地添加到平台组
+# Initialize platforms (footings)
+platforms = generate_footings(10)  # Initially generate 10 platforms
+platforms.add(ground)  # Add the ground platform to the platform group
 
-# 游戏主循环
+# Main game loop
 running = True
-scroll_speed = 0  # 滚动速度
-background_y_positions = [0, -SCREEN_HEIGHT, -2 * SCREEN_HEIGHT, -3 * SCREEN_HEIGHT]  # 每张背景图片的 y 位置
+scroll_speed = 0  # Scrolling speed
+background_y_positions = [0, -SCREEN_HEIGHT, -2 * SCREEN_HEIGHT, -3 * SCREEN_HEIGHT]  # Y positions for each background image
 
 while running:
     for event in pygame.event.get():
@@ -45,56 +45,56 @@ while running:
             if event.key == pygame.K_SPACE and player.is_alive:
                 player.jump()
 
-    # 如果玩家死亡，显示 "死亡提示" 并重置游戏
+    # If the player is dead, show "You are dead" message and reset the game
     if not player.is_alive:
         font = pygame.font.SysFont(None, 55)
         text = font.render("You are dead!!", True, (255, 0, 0))
         screen.blit(text, (SCREEN_WIDTH // 2 - text.get_width() // 2, SCREEN_HEIGHT // 2 - text.get_height() // 2))
         pygame.display.flip()
-        pygame.time.wait(2000)  # 等待2秒
-        player.reset_position()  # 重置玩家
-        platforms = generate_footings(10)  # 重置跳板
-        platforms.add(ground)  # 重新添加地面
-        background_y_positions = [0, -SCREEN_HEIGHT, -2 * SCREEN_HEIGHT, -3 * SCREEN_HEIGHT]  # 重置背景位置
-        continue  # 跳过下面的渲染，进入下一帧
+        pygame.time.wait(2000)  # Wait for 2 seconds
+        player.reset_position()  # Reset the player's position
+        platforms = generate_footings(10)  # Reset platforms
+        platforms.add(ground)  # Re-add the ground
+        background_y_positions = [0, -SCREEN_HEIGHT, -2 * SCREEN_HEIGHT, -3 * SCREEN_HEIGHT]  # Reset background positions
+        continue  # Skip rendering and move to the next frame
 
-    # 滚动背景和跳板，当玩家跳跃到屏幕中间以上时
+    # Scroll the background and platforms when the player jumps above the middle of the screen
     if player.rect.y < SCREEN_HEIGHT // 2:
-        scroll_speed = abs(player.velocity_y)  # 滚动速度与玩家的速度成比例
-        player.rect.y = SCREEN_HEIGHT // 2  # 锁定玩家在屏幕中间位置
+        scroll_speed = abs(player.velocity_y)  # Scroll speed is proportional to the player's velocity
+        player.rect.y = SCREEN_HEIGHT // 2  # Keep the player locked in the middle of the screen
 
-        # 更新每个背景的 y 位置
+        # Update each background's Y position
         for i in range(len(background_y_positions)):
             background_y_positions[i] += scroll_speed
 
-            # 当背景滚出屏幕时，循环将其移到最顶部，形成无缝衔接
+            # When the background scrolls out of the screen, loop it back to the top to create a seamless transition
             if background_y_positions[i] >= SCREEN_HEIGHT:
                 background_y_positions[i] = background_y_positions[(i - 1) % len(background_y_positions)] - SCREEN_HEIGHT
 
-        # 删除已经超出屏幕的跳板
+        # Remove platforms that are off the screen
         for platform in platforms:
             if platform.rect.top > SCREEN_HEIGHT:
                 platforms.remove(platform)
 
-        # 当背景滚动时，检查是否需要生成新的跳板
-        if len(platforms) < 10:  # 保持屏幕上始终有足够的跳板
-            new_platforms = generate_footings(5, min_y=min([p.rect.y for p in platforms]))  # 在现有跳板之上生成新的跳板
+        # Check if new platforms need to be generated when scrolling
+        if len(platforms) < 10:  # Ensure enough platforms are present on the screen
+            new_platforms = generate_footings(5, min_y=min([p.rect.y for p in platforms]))  # Generate new platforms above the current ones
             platforms.add(new_platforms)
     else:
         scroll_speed = 0
 
-    # 画当前的背景图片，顺序绘制
+    # Draw the current background images in sequence
     for i, background_image in enumerate(background_images):
         screen.blit(background_image, (0, background_y_positions[i]))
 
-    # 更新跳板位置并画跳板
+    # Update and draw platforms
     platforms.update(scroll_speed)
     platforms.draw(screen)
 
-    # 更新并画玩家
+    # Update and draw the player
     player.update(platforms, scroll_speed, ground)
     screen.blit(player.image, player.rect)
 
-    # 更新显示
+    # Update the display
     pygame.display.flip()
-    pygame.time.Clock().tick(60)
+    pygame.time.Clock().tick(60)  # Limit the frame rate to 60 FPS
