@@ -1,71 +1,96 @@
+"""
+Player Class
+Handles the player character's movement, jumping mechanics,
+collision detection with platforms, and sprite rendering.
+"""
+
 import pygame
-from settings import PLAYER_SIZE, GRAVITY, SCREEN_WIDTH, SCREEN_HEIGHT
+from game.constants import GRAVITY, SCREEN_WIDTH, SCROLL_THRESH, platform_group
+from game.resource_manager import ResourceManager
 
-class Player(pygame.sprite.Sprite):
+class Player:
     def __init__(self, x, y):
-        super().__init__()
-        self.image = pygame.Surface(PLAYER_SIZE)
-        self.image.fill((0, 0, 255))  # 蓝色的角色
-        self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
-        self.velocity_y = 0  # 垂直速度
-        self.velocity_x = 0  # 水平速度
+        """
+        Initialize player sprite
+        Args:
+            x (int): Initial x position
+            y (int): Initial y position
+        """
+        self.image = pygame.transform.scale(ResourceManager.jumpy_image, (80, 80))
+        self.width = 45
+        self.height = 50
+        self.rect = pygame.Rect(0, 0, self.width, self.height)
+        self.rect.center = (x, y)
+        self.vel_y = 0
         self.jumping = False
-        self.is_alive = True
-        self.gravity = GRAVITY
-
-    def handle_keys(self):
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
-            self.velocity_x = -5  # 向左移动
-        elif keys[pygame.K_RIGHT]:
-            self.velocity_x = 5  # 向右移动
-        else:
-            self.velocity_x = 0  # 停止移动
+        self.flip = False
 
     def jump(self):
-        if not self.jumping and self.is_alive:
-            self.velocity_y = -20  # 设置跳跃的速度
+        """
+        Make the player jump if not already jumping
+        Returns:
+            bool: True if jump initiated, False if already jumping
+        """
+        if not self.jumping:
+            self.vel_y = -20
             self.jumping = True
+            return True
+        return False
 
-    def apply_gravity(self):
-        if self.is_alive:
-            self.velocity_y += self.gravity
-            self.rect.y += self.velocity_y
+    def move(self):
+        """
+        Handle player movement, including keyboard input,
+        gravity, collisions, and screen scrolling.
+        Returns:
+            int: Amount of screen scroll
+        """
+        dx = 0
+        dy = 0
+        scroll = 0
 
-            if self.rect.top >= SCREEN_HEIGHT:
-                self.is_alive = False
-                self.velocity_y = 0
-                self.velocity_x = 0
+        # Handle keyboard input
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT]:
+            dx = -10
+            self.flip = True
+        if keys[pygame.K_RIGHT]:
+            dx = 10
+            self.flip = False
 
-    def update(self, platforms, scroll_speed, ground_platform):
-        self.handle_keys()
-        self.apply_gravity()
+        # Apply gravity
+        self.vel_y += GRAVITY
+        dy += self.vel_y
 
-        self.rect.x += self.velocity_x
-        if self.rect.right > SCREEN_WIDTH:
-            self.rect.right = SCREEN_WIDTH
-        if self.rect.left < 0:
-            self.rect.left = 0
+        # Check screen boundaries
+        if self.rect.left + dx < 0:
+            dx = -self.rect.left
+        if self.rect.right + dx > SCREEN_WIDTH:
+            dx = SCREEN_WIDTH - self.rect.right
 
-        if self.velocity_y > 0:  # 只有在下落时检测碰撞
-            for platform in platforms:
-                if pygame.sprite.collide_rect(self, platform):
-                    # 改进碰撞检测，确保玩家底部和跳板顶部对齐
-                    if self.rect.bottom <= platform.rect.top + 10 and self.rect.bottom >= platform.rect.top:
-                        self.rect.bottom = platform.rect.top  # 精确对齐
-                        self.velocity_y = 0  # 停止下落
-                        self.jumping = False  # 重置跳跃状态
-                        
-                        # 如果碰到跳板且不是平地，则移除平地
-                        if not platform.is_ground and ground_platform in platforms:
-                            platforms.remove(ground_platform)
+        # Platform collision detection
+        for platform in platform_group:
+            if platform.rect.colliderect(self.rect.x + dx, self.rect.y + dy, self.width, self.height):
+                if self.rect.bottom < platform.rect.centery and self.vel_y > 0:
+                    self.rect.bottom = platform.rect.top
+                    dy = 0
+                    self.vel_y = 0
+                    self.jumping = False
 
-    def reset_position(self):
-        self.rect.x = SCREEN_WIDTH // 2 - 25
-        self.rect.y = SCREEN_HEIGHT - 170
-        self.velocity_y = 0
-        self.velocity_x = 0
-        self.jumping = False
-        self.is_alive = True
+        # Screen scrolling
+        if self.rect.top <= SCROLL_THRESH and self.vel_y < 0:
+            scroll = -dy
+
+        # Update position
+        self.rect.x += dx
+        self.rect.y += dy + scroll
+
+        return scroll
+
+    def draw(self, screen):
+        """
+        Draw the player sprite
+        Args:
+            screen: Pygame surface to draw on
+        """
+        screen.blit(pygame.transform.flip(self.image, self.flip, False), 
+                   (self.rect.x - 12, self.rect.y - 5))
